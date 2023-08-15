@@ -1,7 +1,6 @@
 import * as React from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import CssBaseline from "@mui/material/CssBaseline";
 import Grid from "@mui/material/Grid";
@@ -10,10 +9,7 @@ import Radio from "@mui/material/Radio";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { useNavigate } from "react-router-dom";
-import Webcam from "react-webcam";
-
-// TODO: Allow page to check the corrent answers
-// TODO: Send recorded video to backend
+import WebcamRecorder from "./webcam/recorder";
 
 export default function ExamineeTakeExam() {
 	const [selectedValue, setSelectedValue] = React.useState("a");
@@ -44,62 +40,9 @@ export default function ExamineeTakeExam() {
 		handleReturn();
 	}
 
-	// Ask to open camera and record the stream
-	const webcamRef = React.useRef(null);
-	const mediaRecorderRef = React.useRef(null);
-
-	const [capturing, setCapturing] = React.useState(false);
-	const [recordedChunks, setRecordedChunks] = React.useState([]);
-
-	const handleDataAvailable = React.useCallback(
-		({ data }) => {
-			if (data.size > 0) {
-				setRecordedChunks((prev) => prev.concat(data));
-			}
-		},
-		[setRecordedChunks]
-	);
-
-	const RecordStream = React.useCallback(() => {
-		setCapturing(true);
-		mediaRecorderRef.current = new MediaRecorder(webcamRef.current.stream, {
-			mimeType: "video/mp4",
-		});
-
-		mediaRecorderRef.current.addEventListener(
-			"dataavailable",
-			handleDataAvailable
-		);
-
-		mediaRecorderRef.current.start();
-	}, [webcamRef, setCapturing, mediaRecorderRef, handleDataAvailable]);
-
-	// Stops the recording
-	const handleStopCapture = React.useCallback(() => {
-		mediaRecorderRef.current.stop();
-		setCapturing(false);
-	}, [mediaRecorderRef, setCapturing]);
-
-	const handleSendVideo = React.useCallback(() => {
-		if (recordedChunks.length) {
-			const blob = new Blob(recordedChunks, {
-				type: "video/mp4",
-			});
-
-			// TODO: Send blob to backend
-		}
-	}, [recordedChunks]);
-
 	return (
 		<React.Fragment>
 			<CssBaseline />
-			<Box
-				position="absolute"
-				alignItems="center"
-				justifyItems="center"
-				display="none">
-				<Webcam audio={false} ref={webcamRef} height={120} width={160} />
-			</Box>
 			<Box sx={{ flexGrow: 1 }}>
 				<AppBar position="static">
 					<Toolbar>
@@ -115,7 +58,7 @@ export default function ExamineeTakeExam() {
 				sx={{ mb: 4, textAlign: "start" }}>
 				<Paper
 					variant="outlined"
-					sx={{ my: { xs: 3, md: 6 }, p: { xs: 2, md: 3 } }}>
+					sx={{ my: { xs: 2, md: 3 }, p: { xs: 2, md: 3 } }}>
 					<Box component="form" onSubmit={handleSubmit} noValidate>
 						<Typography component="h1" variant="h6">
 							Question #1
@@ -278,9 +221,7 @@ export default function ExamineeTakeExam() {
 								</Typography>
 							</Grid>
 						</Grid>
-						<Button type="submit" fullWidth variant="contained" sx={{ mb: 2 }}>
-							Submit
-						</Button>
+						{WebcamRecorder()}
 					</Box>
 				</Paper>
 			</Container>
