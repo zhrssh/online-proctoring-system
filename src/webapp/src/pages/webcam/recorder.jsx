@@ -4,16 +4,13 @@ import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
 import React from "react";
 import Typography from "@mui/material/Typography";
-<<<<<<< HEAD
-import Webcam from "react-webcam";
-=======
->>>>>>> c89bb0e6ab64f1414e6830fa79a71de5e8ea8300
 
 // TODO: TEST BLOB IF WORKING
 // TODO: MAKE SUBMIT NAVIGATE TO SUCCESS PAGE
 
 export default function WebcamRecorder() {
-	const webcamRef = React.useRef(null);
+	const videoRef = React.useRef(null);
+	const streamRef = React.useRef(null);
 	const mediaRecorderRef = React.useRef(null);
 	const [capturing, setCapturing] = React.useState(false);
 	const [recordedChunks, setRecordedChunks] = React.useState([]);
@@ -24,81 +21,60 @@ export default function WebcamRecorder() {
 		facingMode: "user",
 	};
 
-	// Handles available data and concatinates it into video chunks
-	const handleDataAvailable = React.useCallback(
-		({ data }) => {
-			if (data.size > 0) {
-				setRecordedChunks((prev) => prev.concat(data));
-			}
-		},
-		[setRecordedChunks]
-	);
+	// Starts the camera
+	const handleStartCamera = React.useCallback(async () => {
+		const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+		if (stream) {
+			videoRef.current.srcObject = stream;
+			streamRef.current = stream;
+			return true;
+		} else {
+			console.error("Error accessing the webcam.");
+			return false;
+		}
+	}, [videoRef]);
 
 	// Starts the recording of the webcam
-<<<<<<< HEAD
-	const handleStartCapture = React.useCallback(() => {
-		console.log("Recording");
+	const handleStartCapture = React.useCallback(async () => {
 		setCapturing(true);
-		setOpenBackdrop(false); // Closes the backdrop
+		setOpenBackdrop(false);
 
-		mediaRecorderRef.current = new MediaRecorder(
-			webcamRef.current.video.srcObject
-		);
+		if (videoRef.current) {
+			console.log("Recording");
+			mediaRecorderRef.current = new MediaRecorder(videoRef.current.srcObject, {
+				mimeType: "video/webm",
+			});
 
-		mediaRecorderRef.current.addEventListener(
-			"dataavailable",
-			handleDataAvailable
-		);
+			// Handles available data and concatinates it into video chunks
+			mediaRecorderRef.current.ondataavailable = (event) => {
+				if (event.data.size > 0) {
+					setRecordedChunks((value) => value.push(event.data));
+				}
+			};
 
-		mediaRecorderRef.current.start();
-	}, [mediaRecorderRef, handleDataAvailable]);
-=======
-	const handleStartCapture = React.useCallback(
-		(stream) => {
-			setOpenBackdrop(false);
+			mediaRecorderRef.current.onstop = () => {
+				if (recordedChunks.length) {
+					console.log("Recorded chunks:", recordedChunks);
+					handleUpload();
+				} else {
+					console.error("No recorded chunks found");
+				}
+			};
 
-			if (stream) {
-				console.log("Recording");
-				mediaRecorderRef.current = new MediaRecorder(
-					webcamRef.current.video.srcObject,
-					{
-						mimeType: "video/webm",
-					}
-				);
-
-				mediaRecorderRef.current.addEventListener(
-					"dataavailable",
-					handleDataAvailable
-				);
-
-				// Starts the recording
-				mediaRecorderRef.current.start();
-			}
-		},
-		[setOpenBackdrop, mediaRecorderRef, handleDataAvailable]
-	);
->>>>>>> c89bb0e6ab64f1414e6830fa79a71de5e8ea8300
+			// Starts the recording
+			mediaRecorderRef.current.start();
+		}
+	}, [setOpenBackdrop, videoRef, mediaRecorderRef]);
 
 	// Stops the capturing of the video
 	const handleStopCapture = React.useCallback(() => {
 		console.log("Stopping Recording");
 		setCapturing(false);
 
-		if (recordedChunks.length) {
-			console.log("Recorded chunks:", recordedChunks);
-<<<<<<< HEAD
-		}
-
 		mediaRecorderRef.current.stop();
-	}, [mediaRecorderRef, recordedChunks]);
-=======
-		} else {
-			console.log("No recorded chunks found");
-		}
-
-		mediaRecorderRef.current.stop();
+		streamRef.current.getTracks().forEach((track) => track.stop());
 	}, [setCapturing, mediaRecorderRef, recordedChunks]);
->>>>>>> c89bb0e6ab64f1414e6830fa79a71de5e8ea8300
 
 	// Uploads the video to the backend
 	const handleUpload = React.useCallback(async () => {
@@ -108,18 +84,21 @@ export default function WebcamRecorder() {
 					type: "video/webm",
 				});
 
-				// Creates form data for preparing the packet
-				const formData = new FormData();
-				formData.append("file", blob);
+				const url = URL.createObjectURL(blob);
+				setRecordedVideoURL(url);
 
-				const response = await fetch("/upload", {
-					method: "POST",
-					body: formData,
-				});
+				// // Creates form data for preparing the packet
+				// const formData = new FormData();
+				// formData.append("file", blob);
 
-				// Displays the response from the server
-				const responseText = await response.text();
-				console.log(responseText);
+				// const response = await fetch("/upload", {
+				// 	method: "POST",
+				// 	body: formData,
+				// });
+
+				// // Displays the response from the server
+				// const responseText = await response.text();
+				// console.log(responseText);
 
 				// Clears the recorded chunks after upload
 				setRecordedChunks([]);
@@ -127,11 +106,15 @@ export default function WebcamRecorder() {
 		} catch (e) {
 			console.log("Error uploading video to backend", e);
 		}
-<<<<<<< HEAD
-	}, [recordedChunks]);
-=======
 	}, [setRecordedChunks, recordedChunks]);
->>>>>>> c89bb0e6ab64f1414e6830fa79a71de5e8ea8300
+
+	const startCameraAndRecord = React.useCallback(async () => {
+		const isCameraOn = await handleStartCamera();
+
+		if (isCameraOn) {
+			handleStartCapture();
+		}
+	}, []);
 
 	return (
 		<>
@@ -143,11 +126,9 @@ export default function WebcamRecorder() {
 				}}>
 				<Grid container sx={{ flexGrow: 1, textAlign: "center" }}>
 					<Grid item xs={12}>
-<<<<<<< HEAD
-=======
 						<Button
 							type="button"
-							onClick={() => setCapturing(true)}
+							onClick={() => startCameraAndRecord()}
 							variant="contained"
 							sx={{ mb: 2 }}
 							disabled={capturing}>
@@ -155,39 +136,24 @@ export default function WebcamRecorder() {
 						</Button>
 					</Grid>
 					<Grid item xs={12}>
->>>>>>> c89bb0e6ab64f1414e6830fa79a71de5e8ea8300
 						<Typography variant="caption" component="span">
 							Note: This will start recording your webcam.
 						</Typography>
 					</Grid>
-<<<<<<< HEAD
-					<Grid item xs={12}>
-						<Button
-							type="button"
-							onClick={handleStartCapture}
-							variant="contained"
-							sx={{ mb: 2 }}>
-							Start examination
-						</Button>
-					</Grid>
 				</Grid>
 			</Backdrop>
 			<Box component="div" sx={{ position: "absolute", display: "none" }}>
-				<Webcam
-					audio={false}
-					height={120}
-					width={160}
-					videoConstraints={videoConstraints}
-					ref={webcamRef}
+				<video
+					height={videoConstraints.height}
+					width={videoConstraints.width}
+					autoPlay
+					playsInline
+					ref={videoRef}
 				/>
 			</Box>
-=======
-				</Grid>
-			</Backdrop>
 			<Box
 				component="div"
 				sx={{ position: "absolute", display: "block" }}></Box>
->>>>>>> c89bb0e6ab64f1414e6830fa79a71de5e8ea8300
 			<Button
 				type="submit"
 				onClick={handleStopCapture}
