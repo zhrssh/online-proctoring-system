@@ -5,10 +5,10 @@ import Grid from "@mui/material/Grid";
 import React from "react";
 import Typography from "@mui/material/Typography";
 
-// TODO: TEST BLOB IF WORKING
-// TODO: MAKE SUBMIT NAVIGATE TO SUCCESS PAGE
+const Component = React.forwardRef((props, ref) => {
+	// Adds callbacks
+	const { onRecordingStarted, onRecordingUploaded } = props;
 
-export default function WebcamRecorder() {
 	const videoRef = React.useRef(null);
 	const streamRef = React.useRef(null);
 	const mediaRecorderRef = React.useRef(null);
@@ -53,6 +53,7 @@ export default function WebcamRecorder() {
 				}
 			};
 
+			// This triggers upload once recording stopped
 			mediaRecorderRef.current.onstop = () => {
 				if (recordedChunks.length) {
 					console.log("Recorded chunks:", recordedChunks);
@@ -84,37 +85,43 @@ export default function WebcamRecorder() {
 					type: "video/webm",
 				});
 
-				const url = URL.createObjectURL(blob);
-				setRecordedVideoURL(url);
+				// Creates form data for preparing the packet
+				const formData = new FormData();
+				formData.append("file", blob);
 
-				// // Creates form data for preparing the packet
-				// const formData = new FormData();
-				// formData.append("file", blob);
+				const response = await fetch("/upload", {
+					method: "POST",
+					body: formData,
+				});
 
-				// const response = await fetch("/upload", {
-				// 	method: "POST",
-				// 	body: formData,
-				// });
-
-				// // Displays the response from the server
-				// const responseText = await response.text();
-				// console.log(responseText);
+				// Displays the response from the server
+				const responseText = await response.text();
+				console.log(responseText);
 
 				// Clears the recorded chunks after upload
 				setRecordedChunks([]);
+
+				onRecordingUploaded();
 			}
 		} catch (e) {
 			console.log("Error uploading video to backend", e);
 		}
 	}, [setRecordedChunks, recordedChunks]);
 
+	// Starts the camera and stars recording
 	const startCameraAndRecord = React.useCallback(async () => {
 		const isCameraOn = await handleStartCamera();
 
 		if (isCameraOn) {
 			handleStartCapture();
+			onRecordingStarted();
+		} else {
+			console.error("Cannot access camera.");
 		}
 	}, []);
+
+	// Forward ref to parent and expose functions
+	React.useImperativeHandle(ref, () => ({ handleStopCapture }));
 
 	return (
 		<>
@@ -123,6 +130,7 @@ export default function WebcamRecorder() {
 				sx={{
 					color: "#fff",
 					zIndex: (theme) => theme.zIndex.drawer + 1,
+					backdropFilter: "blur(0.35em)",
 				}}>
 				<Grid container sx={{ flexGrow: 1, textAlign: "center" }}>
 					<Grid item xs={12}>
@@ -155,7 +163,7 @@ export default function WebcamRecorder() {
 				component="div"
 				sx={{ position: "absolute", display: "block" }}></Box>
 			<Button
-				type="submit"
+				type="button"
 				onClick={handleStopCapture}
 				fullWidth
 				variant="contained"
@@ -165,4 +173,6 @@ export default function WebcamRecorder() {
 			</Button>
 		</>
 	);
-}
+});
+
+export default Component;
