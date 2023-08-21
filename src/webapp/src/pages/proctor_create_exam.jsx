@@ -55,51 +55,6 @@ export default function ProctorCreateExam() {
 				<Paper
 					variant="outlined"
 					sx={{ my: { xs: 3, md: 6 }, p: { xs: 2, md: 3 } }}>
-					<Box component="div" sx={{ textAlign: "justify" }}>
-						<Typography component="h1" variant="h6">
-							Question #1
-						</Typography>
-						<Typography component="p" variant="body2">
-							Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-							eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut
-							enim ad minim veniam, quis nostrud exercitation ullamco laboris
-							nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in
-							reprehenderit in voluptate velit esse cillum dolore eu fugiat
-							nulla pariatur. Excepteur sint occaecat cupidatat non proident,
-							sunt in culpa qui officia deserunt mollit anim id est laborum.
-						</Typography>
-						<Grid container sx={{ marginTop: 2, marginBottom: 2 }}>
-							<Grid item xs={12}>
-								<Typography component="p" variant="button">
-									Option A
-								</Typography>
-							</Grid>
-							<Grid item xs={12}>
-								<Typography component="p" variant="button">
-									Option B
-								</Typography>
-							</Grid>
-							<Grid item xs={12}>
-								<Typography component="p" variant="button">
-									Option C
-								</Typography>
-							</Grid>
-							<Grid item xs={12}>
-								<Typography component="p" variant="button">
-									Option D
-								</Typography>
-							</Grid>
-						</Grid>
-						<Typography component="p" variant="caption">
-							Correct Answer: B
-						</Typography>
-					</Box>
-				</Paper>
-			</Container>
-			<Container component="main" maxWidth="sm" sx={{ mb: 4 }}>
-				<Paper
-					variant="outlined"
-					sx={{ my: { xs: 3, md: 6 }, p: { xs: 2, md: 3 } }}>
 					<Box component="form" onSubmit={handleSubmit} noValidate>
 						<Typography
 							component="h6"
