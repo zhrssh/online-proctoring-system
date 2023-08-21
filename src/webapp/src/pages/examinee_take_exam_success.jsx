@@ -51,7 +51,7 @@ export default function ExamineeTakeExamSuccess() {
 								component="h3"
 								variant="h3"
 								sx={{ marginTop: "0.5em", marginBottom: "0.5em" }}>
-								50 out of 60
+								5 out of 5
 							</Typography>
 						</Box>
 					) : (
