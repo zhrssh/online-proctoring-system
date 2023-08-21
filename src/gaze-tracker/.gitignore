@@ -3,3 +3,5 @@
 /tests/clips
 /src/uploads
 /src/outputs
+
+__pycache__
