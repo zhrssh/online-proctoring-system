@@ -15,7 +15,7 @@ class HeadPoseEstimation():
         """
 
         self.cap = cv2.VideoCapture(source)
-        self.output = output
+        self.dst = output
         self.size = (640, 480)
         self.is_gazed = False
 
@@ -103,10 +103,10 @@ class HeadPoseEstimation():
                 threshold_x, threshold_y = 10, 5
 
                 if (x < threshold_x and x > (threshold_x-5)) and (y < threshold_y and y > -threshold_y):
-                    text = "Matalinong Tao Nice"
+                    text = "Looking center"
                     self.is_gazed = False
                 else:
-                    text = "Bobo"
+                    text = "Looking away"
                     self.is_gazed = True
 
                 # """ Displaying the nose direction """
@@ -122,26 +122,18 @@ class HeadPoseEstimation():
                 cv2.putText(frame, "x: " + str(np.round(x, 2)), (500, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
                 cv2.putText(frame, "y: " + str(np.round(y, 2)), (500, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
                 cv2.putText(frame, "z: " + str(np.round(z, 2)), (500, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
-
-                self.mp_drawing.draw_landmarks(
-                image=frame,
-                landmark_list=face_landmarks,
-                connections=self.mp_face_mesh.FACEMESH_CONTOURS,
-                landmark_drawing_spec=self.drawing_spec,
-                connection_drawing_spec=self.drawing_spec
-                )
+                cv2.putText(frame, f'Suspicion Level: {str(np.round(self.suspicion_tracker.get_suspicion_level(), 2))}%', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
+                        1, (0, 0, 255), 2)
+                # Uncomment this to show face landmarks
+                # self.mp_drawing.draw_landmarks(
+                # image=frame,
+                # landmark_list=face_landmarks,
+                # connections=self.mp_face_mesh.FACEMESH_CONTOURS,
+                # landmark_drawing_spec=self.drawing_spec,
+                # connection_drawing_spec=self.drawing_spec
+                # )
 
         return frame
-
-    def _saved_clip(self):
-        if self.clip_writer is None:
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            self.clip_writer = cv2.VideoWriter(self.output, fourcc, 30, (640,480))
-
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, int(self.cap.get(cv2.CAP_PROP_POS_FRAMES) - self.clip_duration * 30))
-        for _ in range(int(self.clip_duration * 30)):
-            ret, frame = self.cap.read()
-            self.clip_writer.write(frame)
 
     def preprocessed(self):
 
@@ -154,7 +146,6 @@ class HeadPoseEstimation():
         gaze_duration = 0
 
         counter = 0
-        out = None
         hasSaved = True
 
         while self.cap.isOpened():
@@ -179,7 +170,10 @@ class HeadPoseEstimation():
 
             # For saving the video
             if (self.out == None):
-                self.out = cv2.VideoWriter(f'{self.output}-{counter}.avi',
+                print("Filepath:", f"{self.dst}\\clip-{counter}.avi")
+                filepath = f"{self.dst}"
+                os.makedirs(filepath, exist_ok=True)
+                self.out = cv2.VideoWriter(os.path.join(filepath, f'clip-{counter}.avi'),
                                              cv2.VideoWriter_fourcc(*'MJPG'),
                                              15, self.size)
                 
@@ -187,7 +181,7 @@ class HeadPoseEstimation():
             if self.is_gazed:
                 gaze_duration += gaze_timer_start - gaze_timer_prev
                 if gaze_duration >= 3:
-                    print(f"gazing: {gaze_duration} seconds")
+                    # print(f"gazing: {gaze_duration} seconds")                 
                     self.out.write(frame)
                     hasSaved = False
                     self.suspicion_tracker.trigger()
@@ -203,12 +197,8 @@ class HeadPoseEstimation():
                     self.out = None
 
                 gaze_duration = 0
-                print("not_gazing")
-
-            cv2.putText(frame, f'Sussy Level: {str(np.round(self.suspicion_tracker.get_suspicion_level(), 2))}%', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
-                        1, (0, 0, 255), 2)
-
-            cv2.imshow("Head Pose Estimation", frame)
+         
+            # cv2.imshow(f"Clip", frame)
 
             gaze_timer_prev = gaze_timer_start
 
@@ -221,9 +211,9 @@ class HeadPoseEstimation():
         if (self.out != None):
             self.out.release()
         cv2.destroyAllWindows()
-
+        print("Preprocessing done!")
 
 if __name__ == '__main__':
-    FILE_PATH = r"D:\Users\Ainsley\Desktop\ISEAC\online-proctoring-system\src\gaze-tracker\tests\clips\not cheating\2023-08-16_23-44-36.mp4"
-    head_pose = HeadPoseEstimation(FILE_PATH, os.path.join('clips/', FILE_PATH.split(sep='\\')[-1]))
-    head_pose.preprocessed()
+    
+    hp = HeadPoseEstimation(0, None)
+    hp.preprocessed()
