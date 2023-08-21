@@ -22,10 +22,6 @@ export default function ExamineeTakeExam() {
 		navigate("/examinee/take_exam/success");
 	}
 
-	function handleSubmit() {
-		handleReturn();
-	}
-
 	React.useEffect(() => timerRef.current.pause());
 
 	return (
@@ -55,7 +51,7 @@ export default function ExamineeTakeExam() {
 						<Questionnaire />
 						<WebcamRecorder
 							onRecordingStarted={() => timerRef.current.start()}
-							onRecordingUploaded={() => handleSubmit()}
+							onRecordingUploaded={() => handleReturn()}
 							ref={recorderRef}
 						/>
 					</Box>

@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import head_pose as hp
 import threading
 import os
 
 app = Flask(__name__)
+CORS(app)
 
 # This is where video gets processed and cut into clips
 def inference(path, output_path, threshold_x, threshold_y):
