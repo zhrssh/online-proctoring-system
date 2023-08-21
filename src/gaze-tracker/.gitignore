@@ -1,1 +1,5 @@
 .venv
+/src/clips
+/tests/clips
+/src/uploads
+/src/outputs
