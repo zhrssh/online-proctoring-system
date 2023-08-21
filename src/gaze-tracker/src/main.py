@@ -6,8 +6,8 @@ import os
 app = Flask(__name__)
 
 # This is where video gets processed and cut into clips
-def inference(path, output_path):
-    head_pose = hp.HeadPoseEstimation(path, output_path)
+def inference(path, output_path, threshold_x, threshold_y):
+    head_pose = hp.HeadPoseEstimation(path, output_path, threshold_x, threshold_y)
     head_pose.preprocessed()
 
 @app.route('/upload', methods=['POST'])
@@ -22,7 +22,7 @@ def upload_video():
 
     # Using Threading library for multiple and faster requests
     # src/outputs/2023-08-16.avi/clips-2023-08-16-0.avi
-    t1 = threading.Thread(target=inference, args=[path, f"src\\gaze-tracker\\src\\outputs\\{filename.split('.')[0]}"])
+    t1 = threading.Thread(target=inference, args=[path, f"src\\gaze-tracker\\src\\outputs\\{filename.split('.')[0]}", 10, 10])
     t1.start()
     return "Uploading"
 

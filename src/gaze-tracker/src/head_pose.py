@@ -8,7 +8,7 @@ import suspicion_tracker as st
 
 class HeadPoseEstimation():
 
-    def __init__(self, source, output):
+    def __init__(self, source, output, threshold_x, threshold_y):
 
         """ Initializing parameters, source, output_path and 
         mediapipe components for Face Landmark detection
@@ -18,6 +18,8 @@ class HeadPoseEstimation():
         self.dst = output
         self.size = (640, 480)
         self.is_gazed = False
+        self.threshold_x = threshold_x
+        self.threshold_y = threshold_y
 
         # for VideoWriter
         self.out = None
@@ -100,7 +102,7 @@ class HeadPoseEstimation():
                 in y-axis, then the person is looking left.
                 """
 
-                threshold_x, threshold_y = 10, 5
+                threshold_x, threshold_y = self.threshold_x, self.threshold_y
 
                 if (x < threshold_x and x > (threshold_x-5)) and (y < threshold_y and y > -threshold_y):
                     text = "Looking center"
