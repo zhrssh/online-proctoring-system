@@ -3,7 +3,7 @@ import { useTimer } from "react-timer-hook";
 
 const Component = React.forwardRef((props, ref) => {
 	const time = new Date();
-	time.setSeconds(time.getSeconds() + 10); // 10 minutes timer
+	time.setSeconds(time.getSeconds() + 600); // 10 minutes timer
 
 	const expiryTimestamp = time;
 
