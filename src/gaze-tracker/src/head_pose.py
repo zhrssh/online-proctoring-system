@@ -4,7 +4,7 @@ import time
 import numpy as np
 import mediapipe as mp
 import suspicion_tracker as st
-
+from gaze_tracking import GazeTracking
 
 class HeadPoseEstimation():
 
@@ -26,6 +26,9 @@ class HeadPoseEstimation():
 
         # Suspicion Tracker
         self.suspicion_tracker = st.SuspicionTracker(decay_factor=0.99995)
+
+        # Gaze tracking
+        self.gaze_tracker = GazeTracking()
 
         # initializing Mediapipe components
         self.mp_face_mesh = mp.solutions.face_mesh
@@ -49,6 +52,11 @@ class HeadPoseEstimation():
 
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) # converting the color space from RGB to BGR
         frame = cv2.resize(frame, self.size)
+
+        """ Adding gaze tracking using dlib and shape predictor 68 face landmarks """
+        self.gaze_tracker.refresh(frame)
+        frame = self.gaze_tracker.annotated_frame()
+
 
         """ Creating 2d and 3d reference points for the landmarks 
             to determine head rotation """
@@ -104,12 +112,15 @@ class HeadPoseEstimation():
 
                 threshold_x, threshold_y = self.threshold_x, self.threshold_y
 
-                if (x < threshold_x and x > (threshold_x-5)) and (y < threshold_y and y > -threshold_y):
+                if (x < threshold_x and x > (threshold_x-5)) and (y < threshold_y and y > -threshold_y) or self.gaze_tracker.is_center():
                     text = "Looking center"
                     self.is_gazed = False
                 else:
                     text = "Looking away"
                     self.is_gazed = True
+
+                left_pupil = self.gaze_tracker.pupil_left_coords()
+                right_pupil = self.gaze_tracker.pupil_right_coords()
 
                 # """ Displaying the nose direction """
                 # nose_3d_projection, jacobian = cv2.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
@@ -121,11 +132,14 @@ class HeadPoseEstimation():
                 cv2.line(frame, p1, p2, (255, 0, 0), 3)
 
                 cv2.putText(frame, text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.putText(frame, "x: " + str(np.round(x, 2)), (500, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
-                cv2.putText(frame, "y: " + str(np.round(y, 2)), (500, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
-                cv2.putText(frame, "z: " + str(np.round(z, 2)), (500, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
+                cv2.putText(frame, "x: " + str(np.round(x, 2)), (500, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (147, 58, 31))
+                cv2.putText(frame, "y: " + str(np.round(y, 2)), (500, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (147, 58, 31))
+                cv2.putText(frame, "z: " + str(np.round(z, 2)), (500, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (147, 58, 31))
                 cv2.putText(frame, f'Suspicion Level: {str(np.round(self.suspicion_tracker.get_suspicion_level(), 2))}%', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
                         1, (0, 0, 255), 2)
+                cv2.putText(frame, "Left pupil:  " + str(left_pupil), (90, 130), cv2.FONT_HERSHEY_DUPLEX, 0.9, (147, 58, 31), 1)
+                cv2.putText(frame, "Right pupil: " + str(right_pupil), (90, 165), cv2.FONT_HERSHEY_DUPLEX, 0.9, (147, 58, 31), 1)
+
                 # Uncomment this to show face landmarks
                 # self.mp_drawing.draw_landmarks(
                 # image=frame,
@@ -200,7 +214,7 @@ class HeadPoseEstimation():
 
                 gaze_duration = 0
          
-            # cv2.imshow(f"Clip", frame)
+            cv2.imshow(f"Clip", frame)
 
             gaze_timer_prev = gaze_timer_start
 
@@ -217,5 +231,6 @@ class HeadPoseEstimation():
 
 if __name__ == '__main__':
     
-    hp = HeadPoseEstimation(0, None)
+    FILE_PATH = r'src\gaze-tracker\tests\clips\cheating\2023-08-16_23-35-59.mp4'
+    hp = HeadPoseEstimation(FILE_PATH, None, 10, 5)
     hp.preprocessed()
