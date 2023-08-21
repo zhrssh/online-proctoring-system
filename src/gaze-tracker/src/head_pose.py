@@ -1,42 +1,59 @@
+import os
 import cv2
-import mediapipe as mp 
+import time
 import numpy as np
-import pandas as pd
+import mediapipe as mp
+import suspicion_tracker as st
 
-mp_face_mesh = mp.solutions.face_mesh
-face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-mp_drawing = mp.solutions.drawing_utils
-drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
+class HeadPoseEstimation():
 
-columns = ["Curr-Time", "x", "y", "z"]
+    def __init__(self, source, output):
 
-def captureVideo(source):
-    cap = cv2.VideoCapture(source)
-    
-    data = pd.DataFrame(columns=columns)
+        """ Initializing parameters, source, output_path and 
+        mediapipe components for Face Landmark detection
+        """
 
-    while cap.isOpened():
+        self.cap = cv2.VideoCapture(source)
+        self.output = output
+        self.size = (640, 480)
+        self.is_gazed = False
 
-        _, image = cap.read()
+        # for VideoWriter
+        self.out = None
 
-        current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+        # Suspicion Tracker
+        self.suspicion_tracker = st.SuspicionTracker(decay_factor=0.99995)
 
-        image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
-        image.flags.writeable = False
+        # initializing Mediapipe components
+        self.mp_face_mesh = mp.solutions.face_mesh
+        self.face_mesh = self.mp_face_mesh.FaceMesh(min_detection_confidence=0.5,
+                                                    min_tracking_confidence=0.5)
+        self.mp_drawing = mp.solutions.drawing_utils
+        self.drawing_spec = self.mp_drawing.DrawingSpec(thickness=1, circle_radius=1,
+                                                        color=(0, 255, 0))
 
-        results = face_mesh.process(image)
+    def _preprocess_frame(self, frame):
 
-        image.flags.writeable = True
+        """ Horizontally flipping the frame for a selfie view, also 
+        converting the color from BGR to RGB """
+        frame = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_BGR2RGB)
+        
+        """ Improving the performance by setting writable to False for 
+            a read-only frame while getting the image processed results """
+        frame.flags.writeable = False
+        results = self.face_mesh.process(frame)
+        frame.flags.writeable = True
 
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        image = cv2.resize(image, (640, 480))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR) # converting the color space from RGB to BGR
+        frame = cv2.resize(frame, self.size)
 
-        img_h, img_w, img_c = image.shape
-        print(image.shape)
+        """ Creating 2d and 3d reference points for the landmarks 
+            to determine head rotation """
 
-        face_2d = []
+        img_h, img_w, img_c = frame.shape
         face_3d = []
+        face_2d = []
 
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
@@ -45,83 +62,168 @@ def captureVideo(source):
                         if idx == 1:
                             nose_2d = (lm.x * img_w, lm.y * img_h)
                             nose_3d = (lm.x * img_w, lm.y * img_h, lm.z * 3000)
-                        
+
                         x, y = int(lm.x * img_w), int(lm.y * img_h)
 
+                        """ Getting 2D and 3D Face Coordinates """
                         face_2d.append([x, y])
                         face_3d.append([x, y, lm.z])
 
+                """ Converting the resulting coordinates to a numpy array"""
                 face_2d = np.array(face_2d, dtype=np.float64)
                 face_3d = np.array(face_3d, dtype=np.float64)
 
                 focal_length = 1 * img_w
-
-                cam_matrix = np.array([[focal_length, 0, img_h/2],
-                                        [0, focal_length, img_w/2],
-                                        [0, 0, 1]])
                 
-                dist_matrix = np.zeros((4,1), dtype=np.float64)
+                """ Simplified calibration by getting the intrinsic and 
+                    distortion parameters of the camera """
+                cam_matrix = np.array([[focal_length, 0, img_h / 2],
+                                    [0, focal_length, img_w / 2],
+                                    [0, 0, 1]])
+                
+                dist_matrix = np.zeros((4, 1), dtype=np.float64) # Distortion parameters
 
-                _, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
+                """ Solving PnP and getting only rotational matrix by using the rotation vector """
+                success, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
 
                 rmat, jac = cv2.Rodrigues(rot_vec)
 
-                angles, mtxR, mtxQ, Qx, Qy, Qz = cv2.RQDecomp3x3(rmat)
+                angles, mtxR, mtxQ, Qx, Qy, Qz = cv2.RQDecomp3x3(rmat) # getting angles
 
+                """ Getting x, y, z and values and multiplying it to 360 """
                 x = angles[0] * 360
                 y = angles[1] * 360
                 z = angles[2] * 360
 
-                data = data.update({
-                        "Curr-Time": current_time,
-                        "x": x,
-                        "y": y,
-                        "z": z}, ignore_index=True)
+                """ With a threshold 10 degrees, the script will determine whether the user is greater than or less than
+                the threshold. The x and y variables corresponds to the axis. Such that if script detects negative threhold
+                in y-axis, then the person is looking left.
+                """
 
                 threshold_x, threshold_y = 10, 5
-                
-                if y < -threshold_y:
-                    text = "looking left"
-                elif y > threshold_y:
-                    text = "looking right"
-                elif x < -threshold_x:
-                    text = "looking down"
-                elif x > threshold_x:
-                    text = "looking up"
+
+                if (x < threshold_x and x > (threshold_x-5)) and (y < threshold_y and y > -threshold_y):
+                    text = "Matalinong Tao Nice"
+                    self.is_gazed = False
                 else:
-                    text = "looking center"
+                    text = "Bobo"
+                    self.is_gazed = True
 
-                nose_3d_projection, jacobian = cv2.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
+                # """ Displaying the nose direction """
+                # nose_3d_projection, jacobian = cv2.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
 
+                """ Projecting a line pointing from the nose of the subject """
                 p1 = (int(nose_2d[0]), int(nose_2d[1]))
                 p2 = (int(nose_2d[0] + y * 10), int(nose_2d[1] - x * 10))
 
-                cv2.line(image, p1, p2, (255, 0, 0), 3)
+                cv2.line(frame, p1, p2, (255, 0, 0), 3)
 
-                cv2.putText(image, text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
-                cv2.putText(image, "x: " + str(np.round(x, 2)), (500, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255))
-                cv2.putText(image, "y: " + str(np.round(y, 2)), (500, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255))
-                cv2.putText(image, "z: " + str(np.round(z, 2)), (500, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255))
+                cv2.putText(frame, text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(frame, "x: " + str(np.round(x, 2)), (500, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
+                cv2.putText(frame, "y: " + str(np.round(y, 2)), (500, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
+                cv2.putText(frame, "z: " + str(np.round(z, 2)), (500, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
 
-            mp_drawing.draw_landmarks(
-                image=image,
+                self.mp_drawing.draw_landmarks(
+                image=frame,
                 landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_CONTOURS,
-                landmark_drawing_spec=drawing_spec,
-                connection_drawing_spec=drawing_spec
-            )
+                connections=self.mp_face_mesh.FACEMESH_CONTOURS,
+                landmark_drawing_spec=self.drawing_spec,
+                connection_drawing_spec=self.drawing_spec
+                )
+
+        return frame
+
+    def _saved_clip(self):
+        if self.clip_writer is None:
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            self.clip_writer = cv2.VideoWriter(self.output, fourcc, 30, (640,480))
+
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, int(self.cap.get(cv2.CAP_PROP_POS_FRAMES) - self.clip_duration * 30))
+        for _ in range(int(self.clip_duration * 30)):
+            ret, frame = self.cap.read()
+            self.clip_writer.write(frame)
+
+    def preprocessed(self):
+
+        """ Running landmarks detection in source video and 
+        """
+
+        current_time = 0
+        gaze_timer_start = 0
+        gaze_timer_prev = 0
+        gaze_duration = 0
+
+        counter = 0
+        out = None
+        hasSaved = True
+
+        while self.cap.isOpened():
+            
+            ret, frame = self.cap.read()
+            
+            if not ret:
+                break
+            
+            start = time.time()
+            frame = self._preprocess_frame(frame) # running facial landmark detection on each frame
+            end = time.time()
+
+            fps = 1 / (end - start) 
+            # cv2.putText(frame, f'FPS: {int(fps)}', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
+            #             1, (0, 255, 0), 2)
+            
+            # Start timer on gaze, stop on not gazing, calculate duration
+            # gaze_timer_start = time.localtime(time.time()).tm_sec
+            gaze_timer_start = int(time.time_ns() / 1000000000)
+            current_time += gaze_timer_start - gaze_timer_prev
+
+            # For saving the video
+            if (self.out == None):
+                self.out = cv2.VideoWriter(f'{self.output}-{counter}.avi',
+                                             cv2.VideoWriter_fourcc(*'MJPG'),
+                                             15, self.size)
                 
-        cv2.imshow('Head Pose Estimation', image)
+            # Records video when labeled as gazing
+            if self.is_gazed:
+                gaze_duration += gaze_timer_start - gaze_timer_prev
+                if gaze_duration >= 3:
+                    print(f"gazing: {gaze_duration} seconds")
+                    self.out.write(frame)
+                    hasSaved = False
+                    self.suspicion_tracker.trigger()
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            else:
+                if (hasSaved == False):
+                    hasSaved = True
 
-    cap.release()
+                    # Releases the video writer
+                    print(f"Saving... clip-{counter}")
+                    counter += 1
+                    self.out.release()
+                    self.out = None
 
-    csv_filename = 'angles.csv'
-    data.to_csv(csv_filename, index=False)
+                gaze_duration = 0
+                print("not_gazing")
+
+            cv2.putText(frame, f'Sussy Level: {str(np.round(self.suspicion_tracker.get_suspicion_level(), 2))}%', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
+                        1, (0, 0, 255), 2)
+
+            cv2.imshow("Head Pose Estimation", frame)
+
+            gaze_timer_prev = gaze_timer_start
+
+            self.suspicion_tracker.update()
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
+        self.cap.release()
+        if (self.out != None):
+            self.out.release()
+        cv2.destroyAllWindows()
 
 
-
-
-
+if __name__ == '__main__':
+    FILE_PATH = r"D:\Users\Ainsley\Desktop\ISEAC\online-proctoring-system\src\gaze-tracker\tests\clips\not cheating\2023-08-16_23-44-36.mp4"
+    head_pose = HeadPoseEstimation(FILE_PATH, os.path.join('clips/', FILE_PATH.split(sep='\\')[-1]))
+    head_pose.preprocessed()

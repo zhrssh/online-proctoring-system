@@ -1,7 +1,7 @@
 import head_pose as hp
 
-
-FILE_PATH = r"C:\Users\zheri\Documents\dataset\cheating or not cheating\not cheating\2023-08-16_23-44-06.mp4"
+FILE_PATH = 0
 
 if __name__ == '__main__':
-    hp.captureVideo(FILE_PATH)
+    head_pose = hp.HeadPoseEstimation(FILE_PATH, None)
+    head_pose.preprocessed()

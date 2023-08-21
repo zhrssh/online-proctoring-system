@@ -1,1 +1,3 @@
 .venv
+/src/clips
+/tests/clips
