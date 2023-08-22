@@ -8,8 +8,8 @@ from gaze_tracking import GazeTracking
 
 class HeadPoseEstimation():
 
-    def __init__(self, source, output, threshold_x=10, threshold_y=5,
-                 base_x=0, base_y=3):
+    # Threshold_X for looking up and down, Threshhold_Y for looking left and right
+    def __init__(self, source, output, threshold_x=5, threshold_y=5):
 
         """ Initializing parameters, source, output_path and 
         mediapipe components for Face Landmark detection
@@ -21,13 +21,9 @@ class HeadPoseEstimation():
         self.is_gazed = False
         self.threshold_x = threshold_x
         self.threshold_y = threshold_y
-        self.base_x = base_x
-        self.base_y = base_y
 
         # for VideoWriter
         self.out = None
-        # self.FPS = 1/30
-        # self.FPS_MS = int(self.FPS*1000)
 
         # Suspicion Tracker
         self.suspicion_tracker = st.SuspicionTracker(decay_factor=0.99995)
@@ -120,9 +116,16 @@ class HeadPoseEstimation():
                 left_pupil = self.gaze_tracker.pupil_left_coords()
                 right_pupil = self.gaze_tracker.pupil_right_coords()
 
-                if ((x+self.base_x) < (threshold_x+self.base_x) and (x+self.base_x) > self.base_x-threshold_x) \
-                    and ((y+self.base_y) < (threshold_y+self.base_y) and (y+self.base_y) > self.base_y-threshold_y) \
-                        and self.gaze_tracker.is_center() and left_pupil and right_pupil is not None:
+                are_eyes_looking_center = self.gaze_tracker.is_center() and left_pupil and right_pupil is not None
+
+                # Left or Right or Down or Up
+                is_face_looking_center = not (y < -(threshold_y) or y > (threshold_y) or x < -(threshold_x) or x > (threshold_x))
+
+                # For debugging
+                # print("Eyes looking center:", are_eyes_looking_center)
+                # print("Face looking center:", is_face_looking_center)
+
+                if  is_face_looking_center and are_eyes_looking_center:  # checks if the eye is looking center
                     text = "Looking center"
                     self.is_gazed = False
                 else:
@@ -153,13 +156,13 @@ class HeadPoseEstimation():
                 cv2.putText(frame, "Right pupil: " + str(right_pupil), (20, 165), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 1)
 
                 # Uncomment this to show face landmarks
-                # self.mp_drawing.draw_landmarks(
-                #     image=frame,
-                #     landmark_list=face_landmarks,
-                #     connections=self.mp_face_mesh.FACEMESH_CONTOURS,
-                #     landmark_drawing_spec=self.drawing_spec,
-                #     connection_drawing_spec=self.drawing_spec
-                # )
+                self.mp_drawing.draw_landmarks(
+                    image=frame,
+                    landmark_list=face_landmarks,
+                    connections=self.mp_face_mesh.FACEMESH_CONTOURS,
+                    landmark_drawing_spec=self.drawing_spec,
+                    connection_drawing_spec=self.drawing_spec
+                )
 
         return frame
 
