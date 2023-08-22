@@ -107,27 +107,30 @@ class GazeTracking(object):
     def is_top(self):
         """Returns true if the user is looking at the top"""
         if self.pupils_located:
-            return self.vertical_ratio() <= 0.35
+            return self.vertical_ratio() <= 0.2
     
     def is_bottom(self):
         """Returns true if the user is looking at the bottom"""
         if self.pupils_located:
-            return self.vertical_ratio() >= 0.7
+            return self.vertical_ratio() >= 0.2
 
     def is_right(self):
         """Returns true if the user is looking to the right"""
         if self.pupils_located:
-            return self.horizontal_ratio() <= 0.45
+            return self.horizontal_ratio() <= 0.35
 
     def is_left(self):
         """Returns true if the user is looking to the left"""
         if self.pupils_located:
-            return self.horizontal_ratio() >= 0.70
+            return self.horizontal_ratio() >= 0.85
 
     def is_center(self):
         """Returns true if the user is looking to the center"""
         if self.pupils_located:
-            return self.is_right() is not True and self.is_left() is not True
+            return self.is_left() is not True and self.is_right() is not True \
+                and self.is_bottom() is not True and self.is_top() is not True
+            # return self.is_right() is not True and self.is_left() is not True \
+            #     and self.is_bottom is not True and self.is_top is not True
 
     # def is_blinking(self):
     #     """Returns true if the user closes his eyes"""

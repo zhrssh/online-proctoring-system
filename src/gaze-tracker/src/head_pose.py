@@ -8,7 +8,8 @@ from gaze_tracking import GazeTracking
 
 class HeadPoseEstimation():
 
-    def __init__(self, source, output, threshold_x, threshold_y):
+    def __init__(self, source, output, threshold_x=10, threshold_y=5,
+                 base_x=0, base_y=3):
 
         """ Initializing parameters, source, output_path and 
         mediapipe components for Face Landmark detection
@@ -20,9 +21,13 @@ class HeadPoseEstimation():
         self.is_gazed = False
         self.threshold_x = threshold_x
         self.threshold_y = threshold_y
+        self.base_x = base_x
+        self.base_y = base_y
 
         # for VideoWriter
         self.out = None
+        # self.FPS = 1/30
+        # self.FPS_MS = int(self.FPS*1000)
 
         # Suspicion Tracker
         self.suspicion_tracker = st.SuspicionTracker(decay_factor=0.99995)
@@ -112,15 +117,17 @@ class HeadPoseEstimation():
 
                 threshold_x, threshold_y = self.threshold_x, self.threshold_y
 
-                if (x < threshold_x and x > (threshold_x-5)) and (y < threshold_y and y > -threshold_y) or self.gaze_tracker.is_center():
+                left_pupil = self.gaze_tracker.pupil_left_coords()
+                right_pupil = self.gaze_tracker.pupil_right_coords()
+
+                if ((x+self.base_x) < (threshold_x+self.base_x) and (x+self.base_x) > self.base_x-threshold_x) \
+                    and ((y+self.base_y) < (threshold_y+self.base_y) and (y+self.base_y) > self.base_y-threshold_y) \
+                        and self.gaze_tracker.is_center() and left_pupil and right_pupil is not None:
                     text = "Looking center"
                     self.is_gazed = False
                 else:
                     text = "Looking away"
                     self.is_gazed = True
-
-                left_pupil = self.gaze_tracker.pupil_left_coords()
-                right_pupil = self.gaze_tracker.pupil_right_coords()
 
                 # """ Displaying the nose direction """
                 # nose_3d_projection, jacobian = cv2.projectPoints(nose_3d, rot_vec, trans_vec, cam_matrix, dist_matrix)
@@ -132,21 +139,26 @@ class HeadPoseEstimation():
                 cv2.line(frame, p1, p2, (255, 0, 0), 3)
 
                 cv2.putText(frame, text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.putText(frame, "x: " + str(np.round(x, 2)), (500, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (147, 58, 31))
-                cv2.putText(frame, "y: " + str(np.round(y, 2)), (500, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (147, 58, 31))
-                cv2.putText(frame, "z: " + str(np.round(z, 2)), (500, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (147, 58, 31))
-                cv2.putText(frame, f'Suspicion Level: {str(np.round(self.suspicion_tracker.get_suspicion_level(), 2))}%', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
-                        1, (0, 0, 255), 2)
-                cv2.putText(frame, "Left pupil:  " + str(left_pupil), (90, 130), cv2.FONT_HERSHEY_DUPLEX, 0.9, (147, 58, 31), 1)
-                cv2.putText(frame, "Right pupil: " + str(right_pupil), (90, 165), cv2.FONT_HERSHEY_DUPLEX, 0.9, (147, 58, 31), 1)
+                cv2.putText(frame, "x: " + str(np.round(x, 2)), (20, 215), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0))
+                cv2.putText(frame, "y: " + str(np.round(y, 2)), (20, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0))
+                cv2.putText(frame, "z: " + str(np.round(z, 2)), (20, 285), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0))
+
+                if self.suspicion_tracker.get_suspicion_level() < 50:
+                    cv2.putText(frame, f'Suspicion Level: {str(np.round(self.suspicion_tracker.get_suspicion_level(), 2))}%', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (0, 255, 0), 2)
+                else:
+                    cv2.putText(frame, f'Suspicion Level: {str(np.round(self.suspicion_tracker.get_suspicion_level(), 2))}%', (20, 450), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (0, 0, 255), 2)
+                cv2.putText(frame, "Left pupil:  " + str(left_pupil), (20, 130), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 1)
+                cv2.putText(frame, "Right pupil: " + str(right_pupil), (20, 165), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0), 1)
 
                 # Uncomment this to show face landmarks
                 # self.mp_drawing.draw_landmarks(
-                # image=frame,
-                # landmark_list=face_landmarks,
-                # connections=self.mp_face_mesh.FACEMESH_CONTOURS,
-                # landmark_drawing_spec=self.drawing_spec,
-                # connection_drawing_spec=self.drawing_spec
+                #     image=frame,
+                #     landmark_list=face_landmarks,
+                #     connections=self.mp_face_mesh.FACEMESH_CONTOURS,
+                #     landmark_drawing_spec=self.drawing_spec,
+                #     connection_drawing_spec=self.drawing_spec
                 # )
 
         return frame
@@ -231,6 +243,8 @@ class HeadPoseEstimation():
 
 if __name__ == '__main__':
     
-    FILE_PATH = r'src\gaze-tracker\tests\clips\cheating\2023-08-16_23-35-59.mp4'
-    hp = HeadPoseEstimation(FILE_PATH, None, 10, 5)
+    # FILE_PATH = "src/gaze-tracker/tests/using-phone.mp4"
+    FILE_PATH = 0
+    # hp = HeadPoseEstimation(FILE_PATH, f"src\gaze-tracker\src\outputs\{FILE_PATH.split('/')[-1]}", 10, 5)
+    hp = HeadPoseEstimation(FILE_PATH, f"src\gaze-tracker\src\outputs", 10, 5)
     hp.preprocessed()
